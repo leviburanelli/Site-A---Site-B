@@ -1,0 +1,137 @@
+<?php
+
+/**
+ * Implements hook_block_info().
+ * 
+ */
+function sitebmod_block_info() {
+    $blocks = array();
+    $blocks['sitebmod_block'] = array(
+        'info' => t('Site B block'),
+    );
+    return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function sitebmod_block_view($delta = '') {
+    $block = array();
+    switch ($delta) {
+        case 'sitebmod_block':
+            $block['subject'] = '';
+            $block['content'] = _sitebmod_block_content();
+            break;
+    }
+    return $block;
+}
+
+/*
+ * Add the render the loaded content to the custom block
+ */
+
+function _sitebmod_block_content() {
+    $items = _sitebmod_load_rss('http://localhost/test/sites/default/files/articles.xml');
+    return theme('loadrsscontent', array('items' => $items));
+}
+
+/**
+ * Implements hook_theme().
+ */
+function sitebmod_theme() {
+    $themes = array(
+        'loadrsscontent' => array(
+            'variables' => array('items' => array())
+        )
+    );
+    return $themes;
+}
+
+// Created theme 'loadrsscontent' to render the rss feed content
+function theme_loadrsscontent($variables) {
+  $items = $variables['items'];
+  
+  $output = '';
+  if (!empty($items)){
+    $output = '<div class="rss articles">
+            <h2>Articles</h2>';
+    $total = count($items);
+        foreach ($items as $key => $item) {
+            $output .= '<div class="item-' . $key . ($key == 0 ? ' first' : '') . (($key + 1) == $total ? ' last' : '') . '">';
+            $output .= '<h3>' . (string) $item->title . '</h3>';
+            $output .= '<div class="field field-description">' . (string) $item->description . '</div>';
+            $output .= '</div>';
+        }
+    $output .= '</div>';
+  }
+  
+  return $output;
+}
+
+/*
+ *  Loads the rss feed content
+ *  @param string $url: URL to the RSS Feed xml
+ *  @param string $sort: Sort the loading content by title or updated date [optional]
+ *  @param int $sort: Limit the number or returned items. Set -1 to load all. [optional]
+ */
+
+function _sitebmod_load_rss($url, $sort = 'title ASC', $max = -1) {
+    // Load the xml file by the given URL
+    $feed = simplexml_load_file($url);
+    $items = array();
+    if (isset($feed->channel->item)) {
+        
+        foreach ($feed->channel->item as $item) {
+            $items[] = $item;
+        }
+
+        if ((!is_string($sort)) || (is_string($sort) && trim($sort) == '')) {
+            $sort = 'title ASC';
+        }
+        $sort = explode(' ', $sort);
+
+        if (isset($sort[0])) {
+            switch ($sort[0]) {
+                case 'update':
+                    usort($items, 'cmptimestamp');
+                    if ((isset($sort[1])) && ($sort[1] == 'DESC')) {
+                        krsort($items);
+                    }
+                    break;
+                default: 
+                    usort($items, 'cmptext');
+                    if ((isset($sort[1])) && ($sort[1] == 'DESC')) {
+                        krsort($items);
+                    }
+                    break;
+            }
+        } else {
+            usort($items, cmptext);
+        }
+        $total = count($items);
+        if (($max > -1) && ($max < $total)){
+            $reduced = array();
+            for($i = 0; $i < $max; $i++){
+                $reduced[] = $items[$i];
+            }
+            $items = $reduced;
+        }
+    }
+
+    return $items;
+}
+
+//Compare text function
+function cmptext($a, $b) {
+    return strcmp($a->title, $b->title);
+}
+//Compare timestamp function
+function cmptimestamp($a, $b) {
+    if ($a->pubDate == $b->pubDate) {
+        return 0;
+    }
+    return ($a->pubDate < $b->pubDate) ? -1 : 1;
+}
+
+
+?>

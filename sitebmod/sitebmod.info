@@ -1,0 +1,8 @@
+name = Site B Custom module
+description = Site B custom hooks for this project
+
+files[] = sitebmod.module
+
+core = 7.x
+version = "1.x"
+package = "test"

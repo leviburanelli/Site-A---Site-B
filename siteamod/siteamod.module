@@ -1,0 +1,73 @@
+<?php
+
+/*
+ * This fucntion create a rss feed.
+ *  @param string $type: Content type machine-name, like 'article' or 'page'
+ *  @param string $filename: filename and extension, like 'articles.xml'
+ */
+function _siteamod_create_rss($type, $filename){
+    global $base_url;
+    
+    //Load all nodes of the given type.
+    $nodes = node_load_multiple(array(), array('type' => $type, 'status' => 1));
+    
+    //Write a RSS feed 2.0
+    $feed = '<?xml version="1.0" encoding="UTF-8" ?>
+         <rss version="2.0">
+             <channel>
+                 <title>Site A</title>
+                 <link>' . $base_url . '</link>
+                 <description>This is a RSS feed of type '.$type.'</description>';
+    // Load all nodes
+    foreach ($nodes as $node) {
+        // Add the image tag
+        $img = '';
+        if (isset($node->field_image['und'][0]['fid'])){
+            $img = theme_image_style(array(
+                'style_name' => 'large',
+                'path' => $node->field_image['und'][0]['uri'],
+                'width' => $node->field_image['und'][0]['width'],
+                'height' => $node->field_image['und'][0]['height'],
+                'alt' => $node->field_image['und'][0]['alt'],
+                'title' => $node->field_image['und'][0]['title']
+            ));
+            $img = '<div class="field field-name-field-image">
+                    '. $img .'
+                     </div>';
+        }
+        // Add the text/description
+        $text = '<div class="field field-name-body">
+                '. $node->body['und'][0]['safe_value'] . '
+                </div>';
+        // Write the item feed with title, description(Image and Text), link and Date (in timestamp)
+        $feed .= '<item>
+            <title>' . $node->title . '</title>
+            <link>' . url('node/'.$node->nid, array('absolute' => true)) . '</link>
+            <description>' . htmlspecialchars($img) . htmlspecialchars($text) . '</description>
+            <pubDate>' . $node->changed . '</pubDate>
+        </item>
+        ';
+    }
+    $feed .= '</channel>
+        </rss>';
+    
+    //Place the file in the public folder
+    if ($wrapper = file_stream_wrapper_get_instance_by_uri('public://')) {
+        $realpath = $wrapper->realpath() . '/'.$filename;
+        $filenum = fopen($realpath, "w");
+        fwrite($filenum, $feed);
+        fclose($filenum);
+        watchdog('siteamod_create_rss', 'Created !file', array('!file' => $realpath));
+    }else{
+        watchdog('siteamod_create_rss_error', 'failed to open stream for articles.xml');
+    }
+}
+/*
+ * hook_cron()
+ */
+function siteamod_cron() {
+    // Creates/updates the rss file during cron 
+    _siteamod_create_rss('article', 'articles.xml');
+}
+
+?>

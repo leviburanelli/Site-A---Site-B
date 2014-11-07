@@ -1,0 +1,8 @@
+name = Site A Custom module
+description = Site A custom hooks for this project
+
+files[] = siteamod.module
+
+core = 7.x
+version = "1.x"
+package = "test"
